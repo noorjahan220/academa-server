@@ -32,6 +32,7 @@ async function run() {
     const AllCollegeDb = database.collection("AllCollegeDb");
       const admissionsCollection = database.collection("admissions");
  const reviewsCollection = database.collection("reviews");
+   const usersCollection = database.collection("users");
     app.get('/colleges', async (req, res) => {
       try {
         const cursor = AllCollegeDb.find();
@@ -107,6 +108,68 @@ async function run() {
         } catch (error) {
             console.error("Failed to fetch reviews:", error);
             res.status(500).send({ message: 'Failed to fetch reviews' });
+        }
+    });
+    app.get('/users/:email', async (req, res) => {
+      try {
+        const email = req.params.email;
+        const query = { email: email };
+        const user = await usersCollection.findOne(query);
+        if (user) {
+          res.send(user);
+        } else {
+          // Send an empty object or a specific status if user not in DB yet
+          res.status(404).send({ message: 'User not found in custom database.' }); 
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        res.status(500).send({ message: 'Failed to fetch user' });
+      }
+    });
+
+    // 2. POST a new user (used during registration)
+    // Using 'upsert' to prevent creating duplicate users if they register again
+    app.post('/users', async (req, res) => {
+        try {
+            const user = req.body;
+            const query = { email: user.email };
+            const existingUser = await usersCollection.findOne(query);
+
+            if (existingUser) {
+                return res.send({ message: 'User already exists in DB' });
+            }
+
+            const result = await usersCollection.insertOne(user);
+            res.send(result);
+        } catch (error) {
+            console.error("Failed to save user:", error);
+            res.status(500).send({ message: 'Failed to save user' });
+        }
+    });
+
+    // 3. PATCH (update) a user's profile
+    app.patch('/users/:email', async (req, res) => {
+        try {
+            const email = req.params.email;
+            const updatedData = req.body;
+            const filter = { email: email };
+            
+            // Create the update document using the $set operator
+            const updateDoc = {
+                $set: {
+                    name: updatedData.name,
+                    university: updatedData.university,
+                    address: updatedData.address,
+                    // IMPORTANT: Do not allow email to be updated here
+                    // Email is the unique identifier and should not be changed easily
+                },
+            };
+            
+            const result = await usersCollection.updateOne(filter, updateDoc);
+            res.send(result);
+        } catch (error) {
+            console.error("Failed to update user:", error);
+            res.status(500).send({ message: 'Failed to update user' });
         }
     });
 

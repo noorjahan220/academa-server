@@ -30,7 +30,8 @@ async function run() {
     // CORRECTED: Use the correct database and collection names from your screenshot
     const database = client.db("collegeDb"); 
     const AllCollegeDb = database.collection("AllCollegeDb");
-
+      const admissionsCollection = database.collection("admissions");
+ const reviewsCollection = database.collection("reviews");
     app.get('/colleges', async (req, res) => {
       try {
         const cursor = AllCollegeDb.find();
@@ -59,6 +60,55 @@ async function run() {
         res.status(500).send({ message: 'Failed to fetch college' });
     }
 });
+  // 1. POST endpoint to save a new admission application
+    app.post('/admissions', async (req, res) => {
+        try {
+            const admissionData = req.body;
+            const result = await admissionsCollection.insertOne(admissionData);
+            res.send(result);
+        } catch (error) {
+            console.error("Failed to submit admission:", error);
+            res.status(500).send({ message: 'Failed to submit admission' });
+        }
+    });
+
+    // 2. GET endpoint to fetch admissions for a specific user by email
+    app.get('/my-admissions/:email', async (req, res) => {
+        try {
+            const email = req.params.email;
+            const query = { candidateEmail: email };
+            const result = await admissionsCollection.find(query).toArray();
+            res.send(result);
+        } catch (error) {
+            console.error("Failed to fetch user admissions:", error);
+            res.status(500).send({ message: 'Failed to fetch user admissions' });
+        }
+    });
+     app.post('/reviews', async (req, res) => {
+        try {
+            const reviewData = req.body;
+            // Add a timestamp to sort by newest first
+            reviewData.createdAt = new Date(); 
+            const result = await reviewsCollection.insertOne(reviewData);
+            res.send(result);
+        } catch (error) {
+            console.error("Failed to submit review:", error);
+            res.status(500).send({ message: 'Failed to submit review' });
+        }
+    });
+
+    // 2. GET endpoint to fetch all reviews
+    app.get('/reviews', async (req, res) => {
+        try {
+            // Sort by createdAt in descending order to get the newest reviews first
+            const cursor = reviewsCollection.find().sort({ createdAt: -1 });
+            const result = await cursor.toArray();
+            res.send(result);
+        } catch (error) {
+            console.error("Failed to fetch reviews:", error);
+            res.status(500).send({ message: 'Failed to fetch reviews' });
+        }
+    });
 
     // Ping to confirm a successful connection (optional, good for testing)
     await client.db("admin").command({ ping: 1 });
